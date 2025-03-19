@@ -1,48 +1,68 @@
-#include <Arduino.h>
+#include <Bounce2.h>
 
-#define LED_A 2  // LED1 (Rojo)
-#define LED_B 5  // LED2 (Verde)
-#define BOTON_A 18 // S1
-#define BOTON_B 4  // S2
+const unsigned int PIN_LED_R = 2;
+const unsigned int PIN_LED_V = 4;
+const unsigned int PIN_SWITCH_R = 5;
+const unsigned int PIN_SWITCH_V = 18;
 
-#define PWM_CHANNEL_A 0
-#define PWM_CHANNEL_B 1
-#define PWM_FREQ 5000
-#define PWM_RESOLUTION 8
-#define STEP 25
+const int FREQUENCY = 5000;
+const int CHANNEL_R = 0;
+const int CHANNEL_V = 1;
+const int RESOLUTION = 8;
 
-int dutyCycleA = 255; 
-int dutyCycleB = 0;   
+const int CT_MIN = 0;
+const int CT_MAX = 250;
+
+int CT_R = CT_MAX;
+int CT_V = CT_MIN;
+
+const int step = 25;
+
+Bounce debouncer1 = Bounce();
+Bounce debouncer2 = Bounce();
+
+void updatePWM();
 
 void setup() {
-    pinMode(BOTON_A, INPUT_PULLDOWN);
-    pinMode(BOTON_B, INPUT_PULLDOWN);
 
-    ledcAttachChannel(LED_A, PWM_FREQ, PWM_RESOLUTION, PWM_CHANNEL_A);
-    ledcAttachChannel(LED_B, PWM_FREQ, PWM_RESOLUTION, PWM_CHANNEL_B);
-    
-    ledcWrite(PWM_CHANNEL_A, dutyCycleA);
-    ledcWrite(PWM_CHANNEL_B, dutyCycleB);
+  ledcAttachChannel(PIN_LED_R, FREQUENCY, RESOLUTION,
+                    CHANNEL_R);
+  ledcAttachChannel(PIN_LED_V, FREQUENCY, RESOLUTION,
+                    CHANNEL_V);
+
+  pinMode(PIN_SWITCH_R, INPUT);
+  pinMode(PIN_SWITCH_V, INPUT);
+
+  debouncer1.attach(PIN_SWITCH_R);
+  debouncer2.attach(PIN_SWITCH_V);
+
+  debouncer1.interval(25);
+  debouncer2.interval(25);
+
+  updatePWM();
+
+}
+void loop() {
+
+  debouncer1.update();
+  debouncer2.update();
+
+
+  if(debouncer1.fell()) {
+    CT_R = max(CT_R - step, CT_MIN);
+    CT_V = min(CT_V + step, CT_MAX);
+    updatePWM();
+  }
+
+  if(debouncer2.fell()) {
+    CT_V = max(CT_V - step, CT_MIN);
+    CT_R = min(CT_R + step, CT_MAX);
+    updatePWM();
+  }
+
 }
 
-void loop() {
-    if (digitalRead(BOTON_A) == HIGH) { 
-        if (dutyCycleA > 0) {
-            dutyCycleA -= STEP;
-            dutyCycleB += STEP;
-            ledcWrite(PWM_CHANNEL_A, dutyCycleA);
-            ledcWrite(PWM_CHANNEL_B, dutyCycleB);
-            delay(200); 
-        }
-    }
-    
-    if (digitalRead(BOTON_B) == HIGH) { 
-        if (dutyCycleB > 0) {
-            dutyCycleA += STEP;
-            dutyCycleB -= STEP;
-            ledcWrite(PWM_CHANNEL_A, dutyCycleA);
-            ledcWrite(PWM_CHANNEL_B, dutyCycleB);
-            delay(200);
-        }
-    }
+void updatePWM() {
+  ledcWrite(PIN_LED_R, CT_R);
+  ledcWrite(PIN_LED_V, CT_V);
 }
